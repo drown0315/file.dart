@@ -1,38 +1,32 @@
 [![pub package](https://img.shields.io/pub/v/file_testing.svg)](https://pub.dev/packages/file_testing)
 
-Testing utilities intended to work with `package:file`
+A simple and effective way to test file-related operations in Dart. 
+This package provides a memory-based file system for safe and isolated testing, 
+allowing you to simulate any file-related operation without affecting your actual file system.
 
 ## Features
 
-This package provides a series of matchers to be used in tests that work with file
-system types.
+* **Isolated Testing Environments**: Each test runs in its own file system environment, 
+preventing interference between tests.
+* **Safe Testing**: Mock file operations in memory without affecting the real file system.
+* **Matchers**: A series of matchers to be used in tests that work with file system types.
 
 ## Usage
-
 ```dart
-import 'package:file/file.dart';
-import 'package:file/memory.dart';
+import 'dart:io';
 import 'package:file_testing/file_testing.dart';
 import 'package:test/test.dart';
 
 void main() {
-  MemoryFileSystem fs;
+  test('some test', () async {
+    await FakeFile.runZoned(() {
+      final File file = File('foo.txt');
+      file.createSync();
 
-  setUp(() {
-    fs = MemoryFileSystem();
-    fs.file('/foo').createSync();
-  });
-
-  test('some test', () {
-    expectFileSystemException(
-      ErrorCodes.ENOENT,
-      () {
-        fs.directory('').resolveSymbolicLinksSync();
-      },
-    );
-    expect(fs.file('/path/to/file'), isFile);
-    expect(fs.file('/path/to/directory'), isDirectory);
-    expect(fs.file('/foo'), exists);
+      expect(file, isFile);
+      expect(file, exists);
+    });
   });
 }
+
 ```
