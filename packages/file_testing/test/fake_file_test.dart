@@ -5,7 +5,7 @@ import 'package:test/test.dart';
 
 void main() {
   group('Fake File', () {
-    test('create file', () async {
+    test('create file does not affect real system', () async {
       final String path = 'test.txt';
       final bool isCreateSuccess = await FakeFile.runZoned(() async {
         final File file = File(path);
@@ -17,7 +17,7 @@ void main() {
       expect(File(path).existsSync(), isFalse);
     });
 
-    test('create directory', () async {
+    test('create directory does not affect real system', () async {
       final String path = 'mocker_test';
       final bool isCreateSuccess = await FakeFile.runZoned(() async {
         final Directory directory = Directory(path);
@@ -29,7 +29,7 @@ void main() {
       expect(Directory(path).existsSync(), isFalse);
     });
 
-    test('create link', () async {
+    test('create link does not affect real system', () async {
       final String path = 'test_link';
       final bool isCreateSuccess = await FakeFile.runZoned(() async {
         final Link link = Link(path);
