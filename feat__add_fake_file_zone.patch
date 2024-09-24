@@ -1,0 +1,178 @@
+Subject: [PATCH] feat: add fake file zone
+---
+Index: packages/file_testing/lib/file_testing.dart
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/packages/file_testing/lib/file_testing.dart b/packages/file_testing/lib/file_testing.dart
+--- a/packages/file_testing/lib/file_testing.dart	(revision 855831c242a17c2dee163828d52710d9043c7c8d)
++++ b/packages/file_testing/lib/file_testing.dart	(revision 73f20d1c4cf4966ce14516a946af76fd522cb865)
+@@ -4,3 +4,4 @@
+ 
+ /// Matchers (from `package:test`) for use in tests that deal with file systems.
+ export 'src/testing/core_matchers.dart';
++export 'src/testing/fake_file.dart';
+\ No newline at end of file
+Index: packages/file_testing/lib/src/testing/fake_file.dart
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/packages/file_testing/lib/src/testing/fake_file.dart b/packages/file_testing/lib/src/testing/fake_file.dart
+new file mode 100644
+--- /dev/null	(revision 73f20d1c4cf4966ce14516a946af76fd522cb865)
++++ b/packages/file_testing/lib/src/testing/fake_file.dart	(revision 73f20d1c4cf4966ce14516a946af76fd522cb865)
+@@ -0,0 +1,82 @@
++import 'dart:io';
++import 'dart:async';
++import 'package:file/file.dart';
++import 'package:file/memory.dart';
++
++/// A utility class that provides a method to run code within a custom file
++/// system context.
++///
++/// This can be useful for testing, where you want to simulate file system
++/// operations without affecting the real file system.
++class FakeFile {
++  /// Runs the given [body] function within a custom file system context.
++  ///
++  /// This method returns the result of the [body] function.
++  ///
++  /// If a [fileSystem] is provided, it will be used as the file system context.
++  /// Otherwise, a [MemoryFileSystem] is used by default, which simulates file
++  /// system operations in memory.
++  ///
++  ///
++  /// This method overrides various file system operations, such as creating files,
++  /// directories, checking file system types, and more, to redirect them to the
++  /// provided or default file system.
++  ///
++  /// Example:
++  ///
++  /// ```dart
++  /// await FakeFile.runZoned(() async {
++  ///   final file = File('test.txt');
++  ///   await file.writeAsString('Hello, world!');
++  ///   print('${file.readAsStringSync()}'); // Outputs: Hello, world!
++  /// });
++  /// ```
++  static Future<R> runZoned<R>(FutureOr<R> Function() body,
++      {FileSystem? fileSystem}) async {
++    fileSystem = fileSystem ?? MemoryFileSystem();
++
++    final result = IOOverrides.runZoned(
++      () async {
++        final R result = await body.call();
++        return result;
++      },
++      createDirectory: (path) {
++        return fileSystem!.directory(path);
++      },
++      getCurrentDirectory: () {
++        return fileSystem!.currentDirectory;
++      },
++      setCurrentDirectory: (path) {
++        fileSystem!.currentDirectory = path;
++      },
++      getSystemTempDirectory: () {
++        return fileSystem!.systemTempDirectory;
++      },
++      createFile: (path) {
++        return fileSystem!.file(path);
++      },
++      stat: (path) {
++        return fileSystem!.stat(path);
++      },
++      statSync: (path) {
++        return fileSystem!.statSync(path);
++      },
++      fseIdentical: (path1, path2) {
++        return fileSystem!.identical(path1, path2);
++      },
++      fseIdenticalSync: (path1, path2) {
++        return fileSystem!.identicalSync(path1, path2);
++      },
++      fseGetType: (path, followLinks) {
++        return fileSystem!.type(path, followLinks: followLinks);
++      },
++      fseGetTypeSync: (path, followLinks) {
++        return fileSystem!.typeSync(path, followLinks: followLinks);
++      },
++      createLink: (path) {
++        return fileSystem!.link(path);
++      },
++    );
++    return result;
++  }
++}
+Index: packages/file_testing/pubspec.yaml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/packages/file_testing/pubspec.yaml b/packages/file_testing/pubspec.yaml
+--- a/packages/file_testing/pubspec.yaml	(revision 855831c242a17c2dee163828d52710d9043c7c8d)
++++ b/packages/file_testing/pubspec.yaml	(revision 73f20d1c4cf4966ce14516a946af76fd522cb865)
+@@ -7,6 +7,7 @@
+   sdk: '>=3.0.0 <4.0.0'
+ 
+ dependencies:
++  file: ^7.0.0
+   test: ^1.23.1
+ 
+ dev_dependencies: 
+Index: packages/file_testing/test/fake_file_test.dart
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/packages/file_testing/test/fake_file_test.dart b/packages/file_testing/test/fake_file_test.dart
+new file mode 100644
+--- /dev/null	(revision 73f20d1c4cf4966ce14516a946af76fd522cb865)
++++ b/packages/file_testing/test/fake_file_test.dart	(revision 73f20d1c4cf4966ce14516a946af76fd522cb865)
+@@ -0,0 +1,44 @@
++import 'dart:io';
++
++import 'package:file_testing/file_testing.dart';
++import 'package:test/test.dart';
++
++void main() {
++  group('Fake File', () {
++    test('create file', () async {
++      final String path = 'test.txt';
++      final bool isCreateSuccess = await FakeFile.runZoned(() async {
++        final File file = File(path);
++        file.createSync();
++        return file.existsSync();
++      });
++
++      expect(isCreateSuccess, isTrue);
++      expect(File(path).existsSync(), isFalse);
++    });
++
++    test('create directory', () async {
++      final String path = 'mocker_test';
++      final bool isCreateSuccess = await FakeFile.runZoned(() async {
++        final Directory directory = Directory(path);
++        await directory.create();
++        return directory.exists();
++      });
++
++      expect(isCreateSuccess, isTrue);
++      expect(Directory(path).existsSync(), isFalse);
++    });
++
++    test('create link', () async {
++      final String path = 'test_link';
++      final bool isCreateSuccess = await FakeFile.runZoned(() async {
++        final Link link = Link(path);
++        link.createSync('test.txt');
++        return link.existsSync();
++      });
++
++      expect(isCreateSuccess, isTrue);
++      expect(Link(path).existsSync(), isFalse);
++    });
++  });
++}

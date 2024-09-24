@@ -4,3 +4,4 @@
 
 /// Matchers (from `package:test`) for use in tests that deal with file systems.
 export 'src/testing/core_matchers.dart';
+export 'src/testing/fake_file.dart';
